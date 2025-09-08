@@ -23,9 +23,9 @@ public class NpuTask {
     private String id;
     
     /**
-     * Time when the task arrives in the system (using same time type as NpuSimEvent).
+     * Time when the task arrives in the system.
      */
-    private double arrivalTime;
+    private SimTime arrivalTime;
     
     /**
      * The number of NPUs the task should be run on.
@@ -46,17 +46,17 @@ public class NpuTask {
     private double hbmDemand;
     
     /**
-     * Time when the task is expected to complete (using same time type as NpuSimEvent).
+     * Time when the task is expected to complete.
      * This can be calculated based on task requirements and NPU allocation.
      */
-    private double taskCompletionTime;
+    private SimTime taskCompletionTime;
     
     /**
      * Calculates the duration of the task.
      * @return the duration from arrival to completion
      */
-    public double getDuration() {
-        return taskCompletionTime - arrivalTime;
+    public SimTime getDuration() {
+        return taskCompletionTime.minus(arrivalTime);
     }
     
     /**
@@ -67,7 +67,7 @@ public class NpuTask {
         return npuDemand > 0 
             && npuTimeSliceRatio >= 0.0 && npuTimeSliceRatio <= 1.0
             && hbmDemand >= 0.0 && hbmDemand <= 1.0
-            && taskCompletionTime >= arrivalTime;
+            && taskCompletionTime.isAfterOrEqual(arrivalTime);
     }
     
     /**

@@ -18,7 +18,7 @@ public class NpuLoadBalancingSimulation implements TaskSimulationContext {
     private final List<NpuTask> completedTasks;
     private final List<NpuTask> rejectedTasks;
     
-    private double currentTime;
+    private SimTime currentTime;
     private boolean running;
     
     public NpuLoadBalancingSimulation(int npuCount, NpuPool.LoadBalancingStrategy strategy) {
@@ -28,7 +28,7 @@ public class NpuLoadBalancingSimulation implements TaskSimulationContext {
         this.taskNpuAllocations = new HashMap<>();
         this.completedTasks = new ArrayList<>();
         this.rejectedTasks = new ArrayList<>();
-        this.currentTime = 0.0;
+        this.currentTime = SimTime.ZERO;
         this.running = false;
     }
     
@@ -135,7 +135,7 @@ public class NpuLoadBalancingSimulation implements TaskSimulationContext {
         statistics.incrementCompletedTasks();
         
         // Update statistics
-        double responseTime = task.getTaskCompletionTime() - task.getArrivalTime();
+        SimTime responseTime = task.getTaskCompletionTime().minus(task.getArrivalTime());
         statistics.addResponseTime(responseTime);
         
         System.out.println("    Task " + task.getId() + " deallocated from NPUs: " + allocatedNpuIds);
@@ -170,7 +170,7 @@ public class NpuLoadBalancingSimulation implements TaskSimulationContext {
         System.out.println("  Rejected tasks: " + statistics.getRejectedTasks());
         System.out.println("  Completed tasks: " + statistics.getCompletedTasks());
         System.out.println("  Acceptance rate: " + String.format("%.2f%%", statistics.getAcceptanceRate() * 100));
-        System.out.println("  Average response time: " + String.format("%.2f", statistics.getAverageResponseTime()));
+        System.out.println("  Average response time: " + statistics.getAverageResponseTime());
         System.out.println();
         
         System.out.println("NPU Pool Statistics:");
@@ -202,13 +202,13 @@ public class NpuLoadBalancingSimulation implements TaskSimulationContext {
      * Simulation snapshot data class.
      */
     public static class SimulationSnapshot {
-        @Getter private final double currentTime;
+        @Getter private final SimTime currentTime;
         @Getter private final List<NpuTask> completedTasks;
         @Getter private final List<NpuTask> rejectedTasks;
         @Getter private final NpuPool.PoolStatistics poolStatistics;
         @Getter private final SimulationStatistics simulationStatistics;
         
-        public SimulationSnapshot(double currentTime, List<NpuTask> completedTasks, 
+        public SimulationSnapshot(SimTime currentTime, List<NpuTask> completedTasks, 
                                 List<NpuTask> rejectedTasks, NpuPool.PoolStatistics poolStatistics,
                                 SimulationStatistics simulationStatistics) {
             this.currentTime = currentTime;

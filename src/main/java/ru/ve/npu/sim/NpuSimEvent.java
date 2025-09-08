@@ -21,9 +21,9 @@ public abstract class NpuSimEvent implements Comparable<NpuSimEvent> {
     }
 
     /**
-     * Simulation timestamp of the event (e.g., in milliseconds or arbitrary units).
+     * Simulation timestamp of the event using SimTime.
      */
-    private final double time;
+    private final SimTime time;
 
     /**
      * Type of the event.
@@ -37,7 +37,7 @@ public abstract class NpuSimEvent implements Comparable<NpuSimEvent> {
 
     private static final AtomicLong SEQ_GEN = new AtomicLong(0L);
 
-    protected NpuSimEvent(double time, Type type) {
+    protected NpuSimEvent(SimTime time, Type type) {
         this.time = time;
         this.type = type;
         this.seq = SEQ_GEN.incrementAndGet();
@@ -52,7 +52,7 @@ public abstract class NpuSimEvent implements Comparable<NpuSimEvent> {
 
     @Override
     public int compareTo(NpuSimEvent other) {
-        int byTime = Double.compare(this.time, other.time);
+        int byTime = this.time.compareTo(other.time);
         if (byTime != 0) return byTime;
         // Stable ordering for same time: earlier inserted first
         return Long.compare(this.seq, other.seq);

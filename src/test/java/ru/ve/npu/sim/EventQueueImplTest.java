@@ -12,7 +12,7 @@ public class EventQueueImplTest {
     static class TestEvent extends NpuSimEvent {
         final String id;
 
-        TestEvent(double time, Type type, String id) {
+        TestEvent(SimTime time, Type type, String id) {
             super(time, type);
             this.id = id;
         }
@@ -29,9 +29,9 @@ public class EventQueueImplTest {
     @Test
     void ordersByTimeAscending() {
         EventQueue q = new EventQueueImpl();
-        q.add(new TestEvent(10.0, NpuSimEvent.Type.ARRIVAL, "e10"));
-        q.add(new TestEvent(5.0, NpuSimEvent.Type.COMPLETION, "e5"));
-        q.add(new TestEvent(7.5, NpuSimEvent.Type.ARRIVAL, "e7.5"));
+        q.add(new TestEvent(SimTime.ofSeconds(10), NpuSimEvent.Type.ARRIVAL, "e10"));
+        q.add(new TestEvent(SimTime.ofSeconds(5), NpuSimEvent.Type.COMPLETION, "e5"));
+        q.add(new TestEvent(SimTime.ofSeconds(7.5), NpuSimEvent.Type.ARRIVAL, "e7.5"));
 
         assertEquals(3, q.size());
         assertEquals("e5", ((TestEvent) q.poll()).id);
@@ -43,9 +43,9 @@ public class EventQueueImplTest {
     @Test
     void keepsInsertionOrderForSameTime() throws InterruptedException {
         EventQueue q = new EventQueueImpl();
-        TestEvent a = new TestEvent(3.0, NpuSimEvent.Type.ARRIVAL, "a");
-        TestEvent b = new TestEvent(3.0, NpuSimEvent.Type.COMPLETION, "b");
-        TestEvent c = new TestEvent(3.0, NpuSimEvent.Type.ARRIVAL, "c");
+        TestEvent a = new TestEvent(SimTime.ofSeconds(3), NpuSimEvent.Type.ARRIVAL, "a");
+        TestEvent b = new TestEvent(SimTime.ofSeconds(3), NpuSimEvent.Type.COMPLETION, "b");
+        TestEvent c = new TestEvent(SimTime.ofSeconds(3), NpuSimEvent.Type.ARRIVAL, "c");
         q.add(a);
         q.add(b);
         q.add(c);
@@ -58,8 +58,8 @@ public class EventQueueImplTest {
     @Test
     void peekDoesNotRemove() {
         EventQueue q = new EventQueueImpl();
-        TestEvent a = new TestEvent(1.0, NpuSimEvent.Type.ARRIVAL, "a");
-        TestEvent b = new TestEvent(2.0, NpuSimEvent.Type.ARRIVAL, "b");
+        TestEvent a = new TestEvent(SimTime.ofSeconds(1), NpuSimEvent.Type.ARRIVAL, "a");
+        TestEvent b = new TestEvent(SimTime.ofSeconds(2), NpuSimEvent.Type.ARRIVAL, "b");
         q.add(b);
         q.add(a);
 
@@ -80,8 +80,8 @@ public class EventQueueImplTest {
     @Test
     void clearEmptiesQueue() {
         EventQueue q = new EventQueueImpl();
-        q.add(new TestEvent(1.0, NpuSimEvent.Type.ARRIVAL, "a"));
-        q.add(new TestEvent(2.0, NpuSimEvent.Type.ARRIVAL, "b"));
+        q.add(new TestEvent(SimTime.ofSeconds(1), NpuSimEvent.Type.ARRIVAL, "a"));
+        q.add(new TestEvent(SimTime.ofSeconds(2), NpuSimEvent.Type.ARRIVAL, "b"));
         assertEquals(2, q.size());
         q.clear();
         assertTrue(q.isEmpty());

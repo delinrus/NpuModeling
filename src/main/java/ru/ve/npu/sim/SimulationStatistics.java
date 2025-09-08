@@ -19,7 +19,7 @@ public class SimulationStatistics {
     private int completedTasks;
     private int processedEvents;
     
-    private List<Double> responseTimes;
+    private List<SimTime> responseTimes;
     private long simulationStartTime;
     private long simulationEndTime;
     
@@ -54,7 +54,7 @@ public class SimulationStatistics {
         processedEvents++;
     }
     
-    public void addResponseTime(double responseTime) {
+    public void addResponseTime(SimTime responseTime) {
         responseTimes.add(responseTime);
     }
     
@@ -76,29 +76,35 @@ public class SimulationStatistics {
     
     /**
      * Calculates the average response time.
-     * @return average response time, or 0.0 if no completed tasks
+     * @return average response time, or SimTime.ZERO if no completed tasks
      */
-    public double getAverageResponseTime() {
-        return responseTimes.isEmpty() ? 0.0 : 
-               responseTimes.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+    public SimTime getAverageResponseTime() {
+        if (responseTimes.isEmpty()) {
+            return SimTime.ZERO;
+        }
+        long avgNanos = (long) responseTimes.stream()
+                .mapToLong(SimTime::toNanos)
+                .average()
+                .orElse(0.0);
+        return SimTime.ofNanos(avgNanos);
     }
     
     /**
      * Gets the minimum response time.
-     * @return minimum response time, or 0.0 if no completed tasks
+     * @return minimum response time, or SimTime.ZERO if no completed tasks
      */
-    public double getMinResponseTime() {
-        return responseTimes.isEmpty() ? 0.0 : 
-               responseTimes.stream().mapToDouble(Double::doubleValue).min().orElse(0.0);
+    public SimTime getMinResponseTime() {
+        return responseTimes.isEmpty() ? SimTime.ZERO : 
+               responseTimes.stream().min(SimTime::compareTo).orElse(SimTime.ZERO);
     }
     
     /**
      * Gets the maximum response time.
-     * @return maximum response time, or 0.0 if no completed tasks
+     * @return maximum response time, or SimTime.ZERO if no completed tasks
      */
-    public double getMaxResponseTime() {
-        return responseTimes.isEmpty() ? 0.0 : 
-               responseTimes.stream().mapToDouble(Double::doubleValue).max().orElse(0.0);
+    public SimTime getMaxResponseTime() {
+        return responseTimes.isEmpty() ? SimTime.ZERO : 
+               responseTimes.stream().max(SimTime::compareTo).orElse(SimTime.ZERO);
     }
     
     /**
@@ -115,8 +121,8 @@ public class SimulationStatistics {
      * @param simulationTime the total simulation time
      * @return throughput, or 0.0 if simulation time is 0
      */
-    public double getThroughput(double simulationTime) {
-        return simulationTime > 0 ? completedTasks / simulationTime : 0.0;
+    public double getThroughput(SimTime simulationTime) {
+        return simulationTime.isPositive() ? completedTasks / simulationTime.toSecondsDouble() : 0.0;
     }
     
     /**
@@ -158,7 +164,7 @@ public class SimulationStatistics {
                 ", rejectedTasks=" + rejectedTasks +
                 ", completedTasks=" + completedTasks +
                 ", acceptanceRate=" + String.format("%.3f", getAcceptanceRate()) +
-                ", avgResponseTime=" + String.format("%.3f", getAverageResponseTime()) +
+                ", avgResponseTime=" + getAverageResponseTime() +
                 ", processedEvents=" + processedEvents +
                 '}';
     }

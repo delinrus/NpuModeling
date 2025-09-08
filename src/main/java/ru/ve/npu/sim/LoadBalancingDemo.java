@@ -41,15 +41,15 @@ public class LoadBalancingDemo {
     private static void generateSampleTasks(NpuLoadBalancingSimulation simulation, int taskCount) {
         System.out.println("Generating " + taskCount + " sample tasks...\n");
         
-        double currentTime = 0.0;
+        SimTime currentTime = SimTime.ZERO;
         
         for (int i = 0; i < taskCount; i++) {
             // Generate task parameters
             String taskId = "Task-" + String.format("%03d", i + 1);
             
-            // Arrival time: exponential inter-arrival times (average 5.0 time units)
-            double interArrivalTime = -Math.log(random.nextDouble()) * 5.0;
-            currentTime += interArrivalTime;
+            // Arrival time: exponential inter-arrival times (average 5.0 seconds)
+            double interArrivalSeconds = -Math.log(random.nextDouble()) * 5.0;
+            currentTime = currentTime.plusSeconds(interArrivalSeconds);
             
             // NPU demand: 1-4 NPUs
             int npuDemand = 1 + random.nextInt(4);
@@ -60,9 +60,9 @@ public class LoadBalancingDemo {
             // HBM demand: 10% to 60%
             double hbmDemand = 0.1 + random.nextDouble() * 0.5;
             
-            // Task duration: 10 to 50 time units
-            double taskDuration = 10.0 + random.nextDouble() * 40.0;
-            double completionTime = currentTime + taskDuration;
+            // Task duration: 10 to 50 seconds
+            double taskDurationSeconds = 10.0 + random.nextDouble() * 40.0;
+            SimTime completionTime = currentTime.plusSeconds(taskDurationSeconds);
             
             // Create and add task
             NpuTask task = NpuTask.builder()
@@ -90,13 +90,16 @@ public class LoadBalancingDemo {
         
         // Create tasks that will stress the system
         for (int i = 0; i < 10; i++) {
+            SimTime arrivalTime = SimTime.ofSeconds(i * 2.0); // Tasks arrive every 2 seconds
+            SimTime completionTime = arrivalTime.plusSeconds(25.0); // 25 seconds duration
+            
             NpuTask task = NpuTask.builder()
                     .id("HighLoad-" + i)
-                    .arrivalTime(i * 2.0) // Tasks arrive every 2 time units
+                    .arrivalTime(arrivalTime)
                     .npuDemand(3) // Each task needs 3 NPUs
                     .npuTimeSliceRatio(0.8) // High compute usage
                     .hbmDemand(0.7) // High memory usage
-                    .taskCompletionTime(i * 2.0 + 25.0) // 25 time units duration
+                    .taskCompletionTime(completionTime)
                     .build();
             
             simulation.addTask(task);
@@ -117,26 +120,32 @@ public class LoadBalancingDemo {
         
         // Small tasks
         for (int i = 0; i < 5; i++) {
+            SimTime arrivalTime = SimTime.ofSeconds(i * 1.0);
+            SimTime completionTime = arrivalTime.plusSeconds(5.0);
+            
             NpuTask task = NpuTask.builder()
                     .id("Small-" + i)
-                    .arrivalTime(i * 1.0)
+                    .arrivalTime(arrivalTime)
                     .npuDemand(1)
                     .npuTimeSliceRatio(0.3)
                     .hbmDemand(0.2)
-                    .taskCompletionTime(i * 1.0 + 5.0)
+                    .taskCompletionTime(completionTime)
                     .build();
             simulation.addTask(task);
         }
         
         // Large tasks
         for (int i = 0; i < 3; i++) {
+            SimTime arrivalTime = SimTime.ofSeconds(10.0 + i * 5.0);
+            SimTime completionTime = arrivalTime.plusSeconds(30.0);
+            
             NpuTask task = NpuTask.builder()
                     .id("Large-" + i)
-                    .arrivalTime(10.0 + i * 5.0)
+                    .arrivalTime(arrivalTime)
                     .npuDemand(4)
                     .npuTimeSliceRatio(0.9)
                     .hbmDemand(0.8)
-                    .taskCompletionTime(10.0 + i * 5.0 + 30.0)
+                    .taskCompletionTime(completionTime)
                     .build();
             simulation.addTask(task);
         }
