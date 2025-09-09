@@ -1,5 +1,6 @@
 package ru.ve.npu.sim;
 
+import ru.ve.npu.sim.strategies.*;
 import java.util.Random;
 
 /**
@@ -15,17 +16,20 @@ public class LoadBalancingDemo {
         System.out.println("==================================\n");
         
         // Run simulation with different strategies
-        runSimulationWithStrategy(NpuPool.LoadBalancingStrategy.FIRST_FIT);
+        runSimulationWithStrategy(new FirstFitAllocationStrategy());
         System.out.println("\n" + "=".repeat(50) + "\n");
         
-        runSimulationWithStrategy(NpuPool.LoadBalancingStrategy.LEAST_LOADED);
+        runSimulationWithStrategy(new LeastLoadedAllocationStrategy());
         System.out.println("\n" + "=".repeat(50) + "\n");
         
-        runSimulationWithStrategy(NpuPool.LoadBalancingStrategy.BEST_FIT);
+        runSimulationWithStrategy(new BestFitAllocationStrategy());
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        runSimulationWithStrategy(new PriorityAwareAllocationStrategy());
     }
     
-    private static void runSimulationWithStrategy(NpuPool.LoadBalancingStrategy strategy) {
-        System.out.println("Running simulation with strategy: " + strategy);
+    private static void runSimulationWithStrategy(NpuAllocationStrategy strategy) {
+        System.out.println("Running simulation with strategy: " + strategy.getStrategyName());
         System.out.println("-".repeat(40));
         
         // Create simulation with 8 NPUs
@@ -38,7 +42,7 @@ public class LoadBalancingDemo {
         simulation.runSimulation();
     }
     
-    private static void generateSampleTasks(NpuLoadBalancingSimulation simulation, int taskCount) {
+    public static void generateSampleTasks(NpuLoadBalancingSimulation simulation, int taskCount) {
         System.out.println("Generating " + taskCount + " sample tasks...\n");
         
         SimTime currentTime = SimTime.ZERO;
@@ -86,7 +90,7 @@ public class LoadBalancingDemo {
         System.out.println("=======================");
         
         NpuLoadBalancingSimulation simulation = new NpuLoadBalancingSimulation(4, 
-                NpuPool.LoadBalancingStrategy.LEAST_LOADED);
+                new LeastLoadedAllocationStrategy());
         
         // Create tasks that will stress the system
         for (int i = 0; i < 10; i++) {
@@ -116,7 +120,7 @@ public class LoadBalancingDemo {
         System.out.println("============================");
         
         NpuLoadBalancingSimulation simulation = new NpuLoadBalancingSimulation(6, 
-                NpuPool.LoadBalancingStrategy.ROUND_ROBIN);
+                new RoundRobinAllocationStrategy());
         
         // Small tasks
         for (int i = 0; i < 5; i++) {

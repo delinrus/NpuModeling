@@ -7,66 +7,133 @@ import java.util.stream.Collectors;
 
 /**
  * Manages a pool of NPUs for load balancing tasks.
- * Provides various load balancing strategies.
+ * Uses external allocation strategies for flexible task assignment.
  */
 @Getter
 public class NpuPool {
     
-    /**
-     * Load balancing strategy enumeration.
-     */
-    public enum LoadBalancingStrategy {
-        FIRST_FIT,      // Assign to first available NPUs
-        BEST_FIT,       // Assign to NPUs with least available capacity that can fit
-        ROUND_ROBIN,    // Assign in round-robin fashion
-        LEAST_LOADED    // Assign to least loaded NPUs
-    }
-    
     private final List<Npu> npus;
-    private final LoadBalancingStrategy strategy;
-    private int roundRobinIndex;
+    private NpuAllocationStrategy allocationStrategy;
     
-    public NpuPool(int npuCount, LoadBalancingStrategy strategy) {
-        this.strategy = strategy;
+    public NpuPool(int npuCount, NpuAllocationStrategy allocationStrategy) {
+        this.allocationStrategy = allocationStrategy;
         this.npus = new ArrayList<>();
-        this.roundRobinIndex = 0;
         
         // Initialize NPUs
         for (int i = 0; i < npuCount; i++) {
             npus.add(new Npu("NPU-" + i));
         }
+        
+        // Initialize strategy
+        if (this.allocationStrategy != null) {
+            this.allocationStrategy.initialize();
+        }
     }
     
     /**
-     * Attempts to allocate NPUs for a task.
-     * @param task the task to allocate NPUs for
-     * @return list of allocated NPU IDs, or empty list if allocation failed
+     * Sets a new allocation strategy.
+     * @param strategy the new allocation strategy
      */
-    public List<String> allocateNpusForTask(NpuTask task) {
-        if (task == null || !task.isValidTask()) {
-            return Collections.emptyList();
+    public void setAllocationStrategy(NpuAllocationStrategy strategy) {
+        this.allocationStrategy = strategy;
+        if (strategy != null) {
+            strategy.initialize();
+        }
+    }
+    
+    /**
+     * Attempts to allocate NPUs for multiple waiting tasks using the allocation strategy.
+     * @param waitingTasks list of tasks waiting for allocation
+     * @return mapping from task ID to list of allocated NPU IDs
+     */
+    public Map<String, List<String>> allocateNpusForTasks(List<NpuTask> waitingTasks) {
+        if (waitingTasks == null || waitingTasks.isEmpty() || allocationStrategy == null) {
+            return Collections.emptyMap();
         }
         
-        List<Npu> selectedNpus = selectNpusForTask(task);
+        // Filter valid tasks
+        List<NpuTask> validTasks = waitingTasks.stream()
+                .filter(task -> task != null && task.isValidTask())
+                .collect(Collectors.toList());
         
-        if (selectedNpus.size() < task.getNpuDemand()) {
-            return Collections.emptyList(); // Not enough NPUs available
+        if (validTasks.isEmpty()) {
+            return Collections.emptyMap();
         }
         
-        // Allocate resources on selected NPUs
+        // Get allocation decisions from strategy
+        Map<String, List<String>> allocationDecisions = allocationStrategy.allocateNpus(validTasks, npus);
+        
+        // Process allocations and rollback on failure
+        Map<String, List<String>> successfulAllocations = new HashMap<>();
+        List<String> failedAllocations = new ArrayList<>();
+        
+        for (Map.Entry<String, List<String>> entry : allocationDecisions.entrySet()) {
+            String taskId = entry.getKey();
+            List<String> npuIds = entry.getValue();
+            
+            // Find the task
+            NpuTask task = validTasks.stream()
+                    .filter(t -> t.getId().equals(taskId))
+                    .findFirst()
+                    .orElse(null);
+            
+            if (task != null) {
+                // Try to allocate resources
+                if (tryAllocateTask(task, npuIds)) {
+                    successfulAllocations.put(taskId, npuIds);
+                } else {
+                    failedAllocations.add(taskId);
+                }
+            }
+        }
+        
+        // Notify strategy about allocation results
+        allocationStrategy.onAllocationComplete(
+            successfulAllocations.size(), 
+            validTasks.size() - successfulAllocations.size()
+        );
+        
+        return successfulAllocations;
+    }
+    
+    /**
+     * Tries to allocate a task to specific NPUs.
+     * @param task the task to allocate
+     * @param npuIds the NPU IDs to allocate to
+     * @return true if allocation successful, false otherwise
+     */
+    private boolean tryAllocateTask(NpuTask task, List<String> npuIds) {
+        List<Npu> selectedNpus = new ArrayList<>();
+        
+        // Find NPUs by ID
+        for (String npuId : npuIds) {
+            Npu npu = findNpuById(npuId);
+            if (npu == null) {
+                return false; // NPU not found
+            }
+            selectedNpus.add(npu);
+        }
+        
+        // Check if all NPUs can accommodate the task
+        for (Npu npu : selectedNpus) {
+            if (!npu.canAccommodateTask(task.getNpuTimeSliceRatio(), task.getHbmDemand())) {
+                return false; // Not enough resources
+            }
+        }
+        
+        // Allocate resources on all NPUs
         List<String> allocatedNpuIds = new ArrayList<>();
         try {
             for (Npu npu : selectedNpus) {
                 npu.allocateTask(task.getId(), task.getNpuTimeSliceRatio(), task.getHbmDemand());
                 allocatedNpuIds.add(npu.getId());
             }
+            return true;
         } catch (IllegalStateException e) {
             // Rollback allocations if any fail
             rollbackAllocations(task, allocatedNpuIds);
-            return Collections.emptyList();
+            return false;
         }
-        
-        return allocatedNpuIds;
     }
     
     /**
@@ -83,89 +150,6 @@ public class NpuPool {
         }
     }
     
-    /**
-     * Selects NPUs for a task based on the load balancing strategy.
-     */
-    private List<Npu> selectNpusForTask(NpuTask task) {
-        switch (strategy) {
-            case FIRST_FIT:
-                return selectFirstFit(task);
-            case BEST_FIT:
-                return selectBestFit(task);
-            case ROUND_ROBIN:
-                return selectRoundRobin(task);
-            case LEAST_LOADED:
-                return selectLeastLoaded(task);
-            default:
-                return selectFirstFit(task);
-        }
-    }
-    
-    /**
-     * First-fit strategy: select first available NPUs.
-     */
-    private List<Npu> selectFirstFit(NpuTask task) {
-        List<Npu> selected = new ArrayList<>();
-        for (Npu npu : npus) {
-            if (npu.canAccommodateTask(task.getNpuTimeSliceRatio(), task.getHbmDemand())) {
-                selected.add(npu);
-                if (selected.size() >= task.getNpuDemand()) {
-                    break;
-                }
-            }
-        }
-        return selected;
-    }
-    
-    /**
-     * Best-fit strategy: select NPUs with least available capacity that can fit.
-     */
-    private List<Npu> selectBestFit(NpuTask task) {
-        List<Npu> availableNpus = npus.stream()
-                .filter(npu -> npu.canAccommodateTask(task.getNpuTimeSliceRatio(), task.getHbmDemand()))
-                .sorted((n1, n2) -> Double.compare(n2.getUtilizationScore(), n1.getUtilizationScore()))
-                .collect(Collectors.toList());
-        
-        return availableNpus.stream()
-                .limit(task.getNpuDemand())
-                .collect(Collectors.toList());
-    }
-    
-    /**
-     * Round-robin strategy: select NPUs in round-robin fashion.
-     */
-    private List<Npu> selectRoundRobin(NpuTask task) {
-        List<Npu> selected = new ArrayList<>();
-        int attempts = 0;
-        int maxAttempts = npus.size() * 2; // Prevent infinite loop
-        
-        while (selected.size() < task.getNpuDemand() && attempts < maxAttempts) {
-            Npu npu = npus.get(roundRobinIndex);
-            roundRobinIndex = (roundRobinIndex + 1) % npus.size();
-            
-            if (npu.canAccommodateTask(task.getNpuTimeSliceRatio(), task.getHbmDemand()) 
-                && !selected.contains(npu)) {
-                selected.add(npu);
-            }
-            attempts++;
-        }
-        
-        return selected;
-    }
-    
-    /**
-     * Least-loaded strategy: select NPUs with lowest utilization.
-     */
-    private List<Npu> selectLeastLoaded(NpuTask task) {
-        List<Npu> availableNpus = npus.stream()
-                .filter(npu -> npu.canAccommodateTask(task.getNpuTimeSliceRatio(), task.getHbmDemand()))
-                .sorted((n1, n2) -> Double.compare(n1.getUtilizationScore(), n2.getUtilizationScore()))
-                .collect(Collectors.toList());
-        
-        return availableNpus.stream()
-                .limit(task.getNpuDemand())
-                .collect(Collectors.toList());
-    }
     
     /**
      * Rolls back allocations in case of failure.
@@ -250,7 +234,7 @@ public class NpuPool {
     public String toString() {
         return "NpuPool{" +
                 "npuCount=" + npus.size() +
-                ", strategy=" + strategy +
+                ", strategy=" + (allocationStrategy != null ? allocationStrategy.getStrategyName() : "null") +
                 ", statistics=" + getStatistics() +
                 '}';
     }

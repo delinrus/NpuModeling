@@ -15,19 +15,19 @@ public class NpuLoadBalancingSimulation implements TaskSimulationContext {
     private final NpuPool npuPool;
     private final SimulationStatistics statistics;
     private final Map<String, List<String>> taskNpuAllocations; // taskId -> allocated NPU IDs
+    private final List<NpuTask> waitingTasks;
     private final List<NpuTask> completedTasks;
-    private final List<NpuTask> rejectedTasks;
     
     private SimTime currentTime;
     private boolean running;
     
-    public NpuLoadBalancingSimulation(int npuCount, NpuPool.LoadBalancingStrategy strategy) {
+    public NpuLoadBalancingSimulation(int npuCount, NpuAllocationStrategy strategy) {
         this.eventQueue = new EventQueueImpl();
         this.npuPool = new NpuPool(npuCount, strategy);
         this.statistics = new SimulationStatistics();
         this.taskNpuAllocations = new HashMap<>();
+        this.waitingTasks = new ArrayList<>();
         this.completedTasks = new ArrayList<>();
-        this.rejectedTasks = new ArrayList<>();
         this.currentTime = SimTime.ZERO;
         this.running = false;
     }
@@ -54,7 +54,8 @@ public class NpuLoadBalancingSimulation implements TaskSimulationContext {
         statistics.setSimulationStartTime(System.currentTimeMillis());
         
         System.out.println("Starting NPU Load Balancing Simulation...");
-        System.out.println("NPU Pool: " + npuPool.getNpus().size() + " NPUs, Strategy: " + npuPool.getStrategy());
+        System.out.println("NPU Pool: " + npuPool.getNpus().size() + " NPUs, Strategy: " + 
+                          (npuPool.getAllocationStrategy() != null ? npuPool.getAllocationStrategy().getStrategyName() : "null"));
         System.out.println("Initial events in queue: " + eventQueue.size());
         
         while (!eventQueue.isEmpty() && running) {
@@ -96,25 +97,11 @@ public class NpuLoadBalancingSimulation implements TaskSimulationContext {
         System.out.println("  Task " + task.getId() + " arrived (demands " + 
                           task.getNpuDemand() + " NPUs)");
         
-        // Try to allocate NPUs for the task
-        List<String> allocatedNpuIds = npuPool.allocateNpusForTask(task);
+        // Add task to waiting queue
+        waitingTasks.add(task);
         
-        if (allocatedNpuIds.isEmpty()) {
-            // Task rejected - not enough resources
-            rejectedTasks.add(task);
-            statistics.incrementRejectedTasks();
-            
-            System.out.println("    Task " + task.getId() + " REJECTED - insufficient resources");
-        } else {
-            // Task accepted - schedule completion event
-            taskNpuAllocations.put(task.getId(), allocatedNpuIds);
-            statistics.incrementAcceptedTasks();
-            
-            TaskCompletionEvent completionEvent = new TaskCompletionEvent(task, allocatedNpuIds);
-            eventQueue.add(completionEvent);
-            
-            System.out.println("    Task " + task.getId() + " ACCEPTED - allocated to NPUs: " + allocatedNpuIds);
-        }
+        // Try to allocate NPUs for waiting tasks
+        processWaitingTasks();
     }
     
     /**
@@ -139,6 +126,63 @@ public class NpuLoadBalancingSimulation implements TaskSimulationContext {
         statistics.addResponseTime(responseTime);
         
         System.out.println("    Task " + task.getId() + " deallocated from NPUs: " + allocatedNpuIds);
+        
+        // Try to allocate NPUs for waiting tasks after deallocation
+        processWaitingTasks();
+    }
+    
+    /**
+     * Processes waiting tasks by attempting to allocate NPUs using the allocation strategy.
+     * Continues until no more tasks can be allocated.
+     */
+    private void processWaitingTasks() {
+        if (waitingTasks.isEmpty()) {
+            return;
+        }
+        
+        boolean allocatedAny;
+        do {
+            allocatedAny = false;
+            
+            // Get allocation mapping from strategy
+            Map<String, List<String>> allocations = npuPool.allocateNpusForTasks(waitingTasks);
+            
+            if (!allocations.isEmpty()) {
+                allocatedAny = true;
+                
+                // Process each allocation
+                for (Map.Entry<String, List<String>> entry : allocations.entrySet()) {
+                    String taskId = entry.getKey();
+                    List<String> allocatedNpuIds = entry.getValue();
+                    
+                    // Find the task
+                    NpuTask task = waitingTasks.stream()
+                            .filter(t -> t.getId().equals(taskId))
+                            .findFirst()
+                            .orElse(null);
+                    
+                    if (task != null) {
+                        // Remove from waiting queue
+                        waitingTasks.remove(task);
+                        
+                        // Store allocation
+                        taskNpuAllocations.put(taskId, allocatedNpuIds);
+                        statistics.incrementAcceptedTasks();
+                        
+                        // Schedule completion event
+                        TaskCompletionEvent completionEvent = new TaskCompletionEvent(task, allocatedNpuIds);
+                        eventQueue.add(completionEvent);
+                        
+                        System.out.println("    Task " + task.getId() + " ALLOCATED - NPUs: " + allocatedNpuIds);
+                    }
+                }
+            }
+        } while (allocatedAny && !waitingTasks.isEmpty());
+        
+        // Update statistics for remaining waiting tasks
+        if (!waitingTasks.isEmpty()) {
+            System.out.println("    " + waitingTasks.size() + " tasks remain in waiting queue");
+        }
     }
     
     /**
@@ -148,7 +192,7 @@ public class NpuLoadBalancingSimulation implements TaskSimulationContext {
         System.out.println("--- Simulation Status (Time: " + currentTime + ") ---");
         System.out.println("Events processed: " + statistics.getProcessedEvents());
         System.out.println("Tasks: " + statistics.getAcceptedTasks() + " accepted, " + 
-                          statistics.getRejectedTasks() + " rejected, " + 
+                          waitingTasks.size() + " waiting, " + 
                           statistics.getCompletedTasks() + " completed");
         System.out.println("NPU Pool: " + npuPool.getStatistics());
         System.out.println("Events remaining: " + eventQueue.size());
@@ -167,7 +211,7 @@ public class NpuLoadBalancingSimulation implements TaskSimulationContext {
         System.out.println("Task Statistics:");
         System.out.println("  Total tasks: " + statistics.getTotalTasks());
         System.out.println("  Accepted tasks: " + statistics.getAcceptedTasks());
-        System.out.println("  Rejected tasks: " + statistics.getRejectedTasks());
+        System.out.println("  Waiting tasks: " + waitingTasks.size());
         System.out.println("  Completed tasks: " + statistics.getCompletedTasks());
         System.out.println("  Acceptance rate: " + String.format("%.2f%%", statistics.getAcceptanceRate() * 100));
         System.out.println("  Average response time: " + statistics.getAverageResponseTime());
@@ -181,7 +225,8 @@ public class NpuLoadBalancingSimulation implements TaskSimulationContext {
         System.out.println("  Running tasks: " + poolStats.getTotalRunningTasks());
         System.out.println();
         
-        System.out.println("Load Balancing Strategy: " + npuPool.getStrategy());
+        System.out.println("Load Balancing Strategy: " + 
+                          (npuPool.getAllocationStrategy() != null ? npuPool.getAllocationStrategy().getStrategyName() : "null"));
         System.out.println("Events processed: " + statistics.getProcessedEvents());
     }
     
@@ -191,8 +236,8 @@ public class NpuLoadBalancingSimulation implements TaskSimulationContext {
     public SimulationSnapshot getSnapshot() {
         return new SimulationSnapshot(
             currentTime,
+            new ArrayList<>(waitingTasks),
             new ArrayList<>(completedTasks),
-            new ArrayList<>(rejectedTasks),
             npuPool.getStatistics(),
             statistics.copy()
         );
@@ -203,17 +248,17 @@ public class NpuLoadBalancingSimulation implements TaskSimulationContext {
      */
     public static class SimulationSnapshot {
         @Getter private final SimTime currentTime;
+        @Getter private final List<NpuTask> waitingTasks;
         @Getter private final List<NpuTask> completedTasks;
-        @Getter private final List<NpuTask> rejectedTasks;
         @Getter private final NpuPool.PoolStatistics poolStatistics;
         @Getter private final SimulationStatistics simulationStatistics;
         
-        public SimulationSnapshot(SimTime currentTime, List<NpuTask> completedTasks, 
-                                List<NpuTask> rejectedTasks, NpuPool.PoolStatistics poolStatistics,
+        public SimulationSnapshot(SimTime currentTime, List<NpuTask> waitingTasks, 
+                                List<NpuTask> completedTasks, NpuPool.PoolStatistics poolStatistics,
                                 SimulationStatistics simulationStatistics) {
             this.currentTime = currentTime;
+            this.waitingTasks = waitingTasks;
             this.completedTasks = completedTasks;
-            this.rejectedTasks = rejectedTasks;
             this.poolStatistics = poolStatistics;
             this.simulationStatistics = simulationStatistics;
         }

@@ -15,7 +15,6 @@ public class SimulationStatistics {
     
     private int totalTasks;
     private int acceptedTasks;
-    private int rejectedTasks;
     private int completedTasks;
     private int processedEvents;
     
@@ -26,7 +25,6 @@ public class SimulationStatistics {
     public SimulationStatistics() {
         this.totalTasks = 0;
         this.acceptedTasks = 0;
-        this.rejectedTasks = 0;
         this.completedTasks = 0;
         this.processedEvents = 0;
         this.responseTimes = new ArrayList<>();
@@ -42,9 +40,6 @@ public class SimulationStatistics {
         acceptedTasks++;
     }
     
-    public void incrementRejectedTasks() {
-        rejectedTasks++;
-    }
     
     public void incrementCompletedTasks() {
         completedTasks++;
@@ -66,13 +61,6 @@ public class SimulationStatistics {
         return totalTasks > 0 ? (double) acceptedTasks / totalTasks : 0.0;
     }
     
-    /**
-     * Calculates the task rejection rate.
-     * @return rejection rate (0.0 to 1.0)
-     */
-    public double getRejectionRate() {
-        return totalTasks > 0 ? (double) rejectedTasks / totalTasks : 0.0;
-    }
     
     /**
      * Calculates the average response time.
@@ -133,7 +121,6 @@ public class SimulationStatistics {
         SimulationStatistics copy = new SimulationStatistics();
         copy.totalTasks = this.totalTasks;
         copy.acceptedTasks = this.acceptedTasks;
-        copy.rejectedTasks = this.rejectedTasks;
         copy.completedTasks = this.completedTasks;
         copy.processedEvents = this.processedEvents;
         copy.responseTimes = new ArrayList<>(this.responseTimes);
@@ -148,7 +135,6 @@ public class SimulationStatistics {
     public void reset() {
         totalTasks = 0;
         acceptedTasks = 0;
-        rejectedTasks = 0;
         completedTasks = 0;
         processedEvents = 0;
         responseTimes.clear();
@@ -161,7 +147,6 @@ public class SimulationStatistics {
         return "SimulationStatistics{" +
                 "totalTasks=" + totalTasks +
                 ", acceptedTasks=" + acceptedTasks +
-                ", rejectedTasks=" + rejectedTasks +
                 ", completedTasks=" + completedTasks +
                 ", acceptanceRate=" + String.format("%.3f", getAcceptanceRate()) +
                 ", avgResponseTime=" + getAverageResponseTime() +
