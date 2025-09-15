@@ -13,8 +13,8 @@ public class TaskCompletionEvent extends NpuSimEvent {
     private final NpuTask task;
     private final List<String> allocatedNpuIds;
     
-    public TaskCompletionEvent(NpuTask task, List<String> allocatedNpuIds) {
-        super(task.getTaskCompletionTime(), Type.COMPLETION);
+    public TaskCompletionEvent(SimTime time, NpuTask task, List<String> allocatedNpuIds) {
+        super(time, Type.COMPLETION);
         this.task = task;
         this.allocatedNpuIds = allocatedNpuIds;
     }

@@ -64,9 +64,9 @@ public class LoadBalancingDemo {
             // HBM demand: 10% to 60%
             double hbmDemand = 0.1 + random.nextDouble() * 0.5;
             
-            // Task duration: 10 to 50 seconds
+            // Task processing duration: 10 to 50 seconds
             double taskDurationSeconds = 10.0 + random.nextDouble() * 40.0;
-            SimTime completionTime = currentTime.plusSeconds(taskDurationSeconds);
+            SimTime processingTime = SimTime.ofSeconds(taskDurationSeconds);
             
             // Create and add task
             NpuTask task = NpuTask.builder()
@@ -75,7 +75,7 @@ public class LoadBalancingDemo {
                     .npuDemand(npuDemand)
                     .npuTimeSliceRatio(npuTimeSliceRatio)
                     .hbmDemand(hbmDemand)
-                    .taskCompletionTime(completionTime)
+                    .processingTimeEstimate(processingTime)
                     .build();
             
             simulation.addTask(task);
@@ -95,7 +95,7 @@ public class LoadBalancingDemo {
         // Create tasks that will stress the system
         for (int i = 0; i < 10; i++) {
             SimTime arrivalTime = SimTime.ofSeconds(i * 2.0); // Tasks arrive every 2 seconds
-            SimTime completionTime = arrivalTime.plusSeconds(25.0); // 25 seconds duration
+            SimTime processingTime = SimTime.ofSeconds(25.0); // 25 seconds duration
             
             NpuTask task = NpuTask.builder()
                     .id("HighLoad-" + i)
@@ -103,7 +103,7 @@ public class LoadBalancingDemo {
                     .npuDemand(3) // Each task needs 3 NPUs
                     .npuTimeSliceRatio(0.8) // High compute usage
                     .hbmDemand(0.7) // High memory usage
-                    .taskCompletionTime(completionTime)
+                    .processingTimeEstimate(processingTime)
                     .build();
             
             simulation.addTask(task);
@@ -125,7 +125,7 @@ public class LoadBalancingDemo {
         // Small tasks
         for (int i = 0; i < 5; i++) {
             SimTime arrivalTime = SimTime.ofSeconds(i * 1.0);
-            SimTime completionTime = arrivalTime.plusSeconds(5.0);
+            SimTime processingTime = SimTime.ofSeconds(5.0);
             
             NpuTask task = NpuTask.builder()
                     .id("Small-" + i)
@@ -133,7 +133,7 @@ public class LoadBalancingDemo {
                     .npuDemand(1)
                     .npuTimeSliceRatio(0.3)
                     .hbmDemand(0.2)
-                    .taskCompletionTime(completionTime)
+                    .processingTimeEstimate(processingTime)
                     .build();
             simulation.addTask(task);
         }
@@ -141,7 +141,7 @@ public class LoadBalancingDemo {
         // Large tasks
         for (int i = 0; i < 3; i++) {
             SimTime arrivalTime = SimTime.ofSeconds(10.0 + i * 5.0);
-            SimTime completionTime = arrivalTime.plusSeconds(30.0);
+            SimTime processingTime = SimTime.ofSeconds(30.0);
             
             NpuTask task = NpuTask.builder()
                     .id("Large-" + i)
@@ -149,7 +149,7 @@ public class LoadBalancingDemo {
                     .npuDemand(4)
                     .npuTimeSliceRatio(0.9)
                     .hbmDemand(0.8)
-                    .taskCompletionTime(completionTime)
+                    .processingTimeEstimate(processingTime)
                     .build();
             simulation.addTask(task);
         }

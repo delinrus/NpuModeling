@@ -21,7 +21,7 @@ public class NpuLoadBalancingSimulationTest {
                 .npuDemand(2)
                 .npuTimeSliceRatio(0.5)
                 .hbmDemand(0.3)
-                .taskCompletionTime(SimTime.ofSeconds(10))
+                .processingTimeEstimate(SimTime.ofSeconds(9))
                 .build();
         
         // Add task and run simulation
@@ -50,7 +50,7 @@ public class NpuLoadBalancingSimulationTest {
                 .npuDemand(2)
                 .npuTimeSliceRatio(0.8)
                 .hbmDemand(0.7)
-                .taskCompletionTime(SimTime.ofSeconds(20))
+                .processingTimeEstimate(SimTime.ofSeconds(19))
                 .build();
         
         NpuTask task2 = NpuTask.builder()
@@ -59,7 +59,7 @@ public class NpuLoadBalancingSimulationTest {
                 .npuDemand(2)
                 .npuTimeSliceRatio(0.6)
                 .hbmDemand(0.5)
-                .taskCompletionTime(SimTime.ofSeconds(15))
+                .processingTimeEstimate(SimTime.ofSeconds(13))
                 .build();
         
         // Add both tasks
@@ -82,14 +82,14 @@ public class NpuLoadBalancingSimulationTest {
         NpuLoadBalancingSimulation simulation = new NpuLoadBalancingSimulation(4, 
                 new FirstFitAllocationStrategy());
         
-        // Create invalid task (completion before arrival)
+        // Create invalid task (non-positive processing time)
         NpuTask invalidTask = NpuTask.builder()
                 .id("invalid-task")
                 .arrivalTime(SimTime.ofSeconds(10))
                 .npuDemand(2)
                 .npuTimeSliceRatio(0.5)
                 .hbmDemand(0.3)
-                .taskCompletionTime(SimTime.ofSeconds(5)) // Before arrival!
+                .processingTimeEstimate(SimTime.ZERO)
                 .build();
         
         // Task should be invalid

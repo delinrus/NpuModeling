@@ -121,8 +121,8 @@ public class NpuLoadBalancingSimulation implements TaskSimulationContext {
         taskNpuAllocations.remove(task.getId());
         statistics.incrementCompletedTasks();
         
-        // Update statistics
-        SimTime responseTime = task.getTaskCompletionTime().minus(task.getArrivalTime());
+        // Update statistics: response time from arrival to current event time
+        SimTime responseTime = currentTime.minus(task.getArrivalTime());
         statistics.addResponseTime(responseTime);
         
         System.out.println("    Task " + task.getId() + " deallocated from NPUs: " + allocatedNpuIds);
@@ -169,8 +169,9 @@ public class NpuLoadBalancingSimulation implements TaskSimulationContext {
                         taskNpuAllocations.put(taskId, allocatedNpuIds);
                         statistics.incrementAcceptedTasks();
                         
-                        // Schedule completion event
-                        TaskCompletionEvent completionEvent = new TaskCompletionEvent(task, allocatedNpuIds);
+                        // Schedule completion event at current time + processing duration
+                        SimTime completionTime = currentTime.plus(task.getDuration());
+                        TaskCompletionEvent completionEvent = new TaskCompletionEvent(completionTime, task, allocatedNpuIds);
                         eventQueue.add(completionEvent);
                         
                         System.out.println("    Task " + task.getId() + " ALLOCATED - NPUs: " + allocatedNpuIds);

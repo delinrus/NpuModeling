@@ -14,7 +14,7 @@ public class NpuTaskTest {
                 .npuDemand(2)
                 .npuTimeSliceRatio(0.5)
                 .hbmDemand(0.3)
-                .taskCompletionTime(SimTime.ofSeconds(15))
+                .processingTimeEstimate(SimTime.ofSeconds(5))
                 .build();
         
         assertTrue(validTask.isValidTask());
@@ -32,7 +32,7 @@ public class NpuTaskTest {
                 .npuDemand(0)
                 .npuTimeSliceRatio(0.5)
                 .hbmDemand(0.3)
-                .taskCompletionTime(SimTime.ofSeconds(15))
+                .processingTimeEstimate(SimTime.ofSeconds(5))
                 .build();
         assertFalse(invalidNpuDemand.isValidTask());
         
@@ -43,7 +43,7 @@ public class NpuTaskTest {
                 .npuDemand(2)
                 .npuTimeSliceRatio(1.5) // > 1.0
                 .hbmDemand(0.3)
-                .taskCompletionTime(SimTime.ofSeconds(15))
+                .processingTimeEstimate(SimTime.ofSeconds(5))
                 .build();
         assertFalse(invalidTimeSlice.isValidTask());
         
@@ -54,18 +54,18 @@ public class NpuTaskTest {
                 .npuDemand(2)
                 .npuTimeSliceRatio(0.5)
                 .hbmDemand(-0.1) // < 0.0
-                .taskCompletionTime(SimTime.ofSeconds(15))
+                .processingTimeEstimate(SimTime.ofSeconds(5))
                 .build();
         assertFalse(invalidHbm.isValidTask());
         
-        // Completion time before arrival time
+        // Invalid processing time (non-positive)
         NpuTask invalidTiming = NpuTask.builder()
                 .id("task-4")
                 .arrivalTime(SimTime.ofSeconds(15))
                 .npuDemand(2)
                 .npuTimeSliceRatio(0.5)
                 .hbmDemand(0.3)
-                .taskCompletionTime(SimTime.ofSeconds(10)) // before arrival
+                .processingTimeEstimate(SimTime.ZERO)
                 .build();
         assertFalse(invalidTiming.isValidTask());
     }
@@ -78,7 +78,7 @@ public class NpuTaskTest {
                 .npuDemand(2)
                 .npuTimeSliceRatio(0.5)
                 .hbmDemand(0.3)
-                .taskCompletionTime(SimTime.ofSeconds(15))
+                .processingTimeEstimate(SimTime.ofSeconds(5))
                 .build();
         
         NpuTask task2 = NpuTask.builder()
@@ -87,7 +87,7 @@ public class NpuTaskTest {
                 .npuDemand(3)
                 .npuTimeSliceRatio(0.8)
                 .hbmDemand(0.7)
-                .taskCompletionTime(SimTime.ofSeconds(30))
+                .processingTimeEstimate(SimTime.ofSeconds(10))
                 .build();
         
         NpuTask task3 = NpuTask.builder()
@@ -96,7 +96,7 @@ public class NpuTaskTest {
                 .npuDemand(2)
                 .npuTimeSliceRatio(0.5)
                 .hbmDemand(0.3)
-                .taskCompletionTime(SimTime.ofSeconds(15))
+                .processingTimeEstimate(SimTime.ofSeconds(5))
                 .build();
         
         assertEquals(task1, task2); // same ID

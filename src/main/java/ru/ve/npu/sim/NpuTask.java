@@ -46,17 +46,16 @@ public class NpuTask {
     private double hbmDemand;
     
     /**
-     * Time when the task is expected to complete.
-     * This can be calculated based on task requirements and NPU allocation.
+     * Estimated processing time required to execute the task (service time).
+     * This is a duration, not an absolute timestamp.
      */
-    private SimTime taskCompletionTime;
+    private SimTime processingTimeEstimate;
     
     /**
-     * Calculates the duration of the task.
-     * @return the duration from arrival to completion
+     * Returns the estimated processing duration for the task (service time).
      */
     public SimTime getDuration() {
-        return taskCompletionTime.minus(arrivalTime);
+        return processingTimeEstimate;
     }
     
     /**
@@ -67,7 +66,7 @@ public class NpuTask {
         return npuDemand > 0 
             && npuTimeSliceRatio >= 0.0 && npuTimeSliceRatio <= 1.0
             && hbmDemand >= 0.0 && hbmDemand <= 1.0
-            && taskCompletionTime.isAfterOrEqual(arrivalTime);
+            && processingTimeEstimate != null && processingTimeEstimate.isPositive();
     }
     
     /**
@@ -94,8 +93,8 @@ public class NpuTask {
                 ", npuDemand=" + npuDemand +
                 ", npuTimeSliceRatio=" + npuTimeSliceRatio +
                 ", hbmDemand=" + hbmDemand +
-                ", taskCompletionTime=" + taskCompletionTime +
-                ", duration=" + getDuration() +
+                ", processingTimeEstimate=" + processingTimeEstimate +
+                ", duration=" + processingTimeEstimate +
                 '}';
     }
     
